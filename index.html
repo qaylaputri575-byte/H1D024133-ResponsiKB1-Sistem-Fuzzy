@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Fuzzy — Risiko Kebakaran Hutan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #7d8590;
+      --accent: #f78166;
+      --green: #56d364;
+      --yellow: #e3b341;
+      --orange: #f0883e;
+      --red: #f85149;
+      --red-dark: #da3633;
+    }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .noise {
+      position: fixed; inset: 0; pointer-events: none; opacity: 0.03; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      position: relative; z-index: 1;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      border-left: 3px solid var(--accent);
+      padding-left: 1.25rem;
+    }
+
+    .tag {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .card label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--surface2);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+    .val-badge {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      min-width: 52px;
+      text-align: right;
+    }
+
+    .mf-bar {
+      display: flex;
+      gap: 3px;
+      margin-top: 10px;
+    }
+
+    .mf-seg {
+      flex: 1;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--surface2);
+      transition: background 0.3s, flex 0.3s;
+    }
+
+    .result-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .result-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--result-color, var(--green));
+      transition: background 0.4s;
+    }
+
+    .result-top {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .risk-circle {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      border: 2px solid var(--result-color, var(--green));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      flex-shrink: 0;
+      transition: border-color 0.4s;
+    }
+
+    .risk-label {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 800;
+      color: var(--result-color, var(--green));
+      transition: color 0.4s;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .risk-desc { font-size: 13px; color: var(--text-muted); }
+
+    .score-big {
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .score-big span {
+      display: block;
+      font-family: 'Space Mono', monospace;
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--result-color, var(--green));
+      line-height: 1;
+      transition: color 0.4s;
+    }
+
+    .score-big small {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    .dist-label {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .dist-bar {
+      display: flex;
+      height: 10px;
+      border-radius: 5px;
+      overflow: hidden;
+      gap: 2px;
+    }
+
+    .dist-seg {
+      transition: flex 0.4s cubic-bezier(.4,0,.2,1);
+      border-radius: 3px;
+    }
+
+    .dist-legend {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
+
+    .dist-legend span {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .membership-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .membership-section h3 {
+      font-size: 12px;
+      font-family: 'Space Mono', monospace;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 1rem;
+    }
+
+    .mf-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 600px) { .mf-grid { grid-template-columns: 1fr 1fr; } }
+
+    .mf-item {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .mf-item-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .mf-pills {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mf-pill {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .mf-pill-name { color: var(--text-muted); }
+    .mf-pill-val {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    .mf-track {
+      height: 3px;
+      background: var(--surface);
+      border-radius: 2px;
+      margin-top: 3px;
+    }
+
+    .mf-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      color: var(--text-muted);
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="noise"></div>
+  <div class="container">
+    <header>
+      <p class="tag">Praktikum KB · Sistem Fuzzy</p>
+      <h1>Tingkat Risiko<br>Kebakaran Hutan</h1>
+      <p>Masukkan kondisi cuaca untuk menghitung tingkat risiko menggunakan logika fuzzy Mamdani.</p>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <label>🌡 Suhu Udara</label>
+        <div class="slider-row">
+          <input type="range" min="20" max="50" value="35" step="1" id="suhu">
+          <span class="val-badge" id="suhu-out">35°C</span>
+        </div>
+        <div class="mf-bar">
+          <div class="mf-seg" id="mf-suhu-r" title="Rendah"></div>
+          <div class="mf-seg" id="mf-suhu-s" title="Sedang"></div>
+          <div class="mf-seg" id="mf-suhu-t" title="Tinggi"></div>
+        </div>
+      </div>
+      <div class="card">
+        <label>💧 Kelembaban Udara</label>
+        <div class="slider-row">
+          <input type="range" min="0" max="100" value="40" step="1" id="kel">
+          <span class="val-badge" id="kel-out">40%</span>
+        </div>
+        <div class="mf-bar">
+          <div class="mf-seg" id="mf-kel-r" title="Rendah"></div>
+          <div class="mf-seg" id="mf-kel-s" title="Sedang"></div>
+          <div class="mf-seg" id="mf-kel-t" title="Tinggi"></div>
+        </div>
+      </div>
+      <div class="card">
+        <label>💨 Kecepatan Angin</label>
+        <div class="slider-row">
+          <input type="range" min="0" max="100" value="30" step="1" id="angin">
+          <span class="val-badge" id="angin-out">30 km/h</span>
+        </div>
+        <div class="mf-bar">
+          <div class="mf-seg" id="mf-angin-l" title="Lemah"></div>
+          <div class="mf-seg" id="mf-angin-s" title="Sedang"></div>
+          <div class="mf-seg" id="mf-angin-k" title="Kencang"></div>
+        </div>
+      </div>
+      <div class="card">
+        <label>🌧 Curah Hujan</label>
+        <div class="slider-row">
+          <input type="range" min="0" max="100" value="10" step="1" id="hujan">
+          <span class="val-badge" id="hujan-out">10 mm</span>
+        </div>
+        <div class="mf-bar">
+          <div class="mf-seg" id="mf-hujan-t" title="Tidak"></div>
+          <div class="mf-seg" id="mf-hujan-r" title="Ringan"></div>
+          <div class="mf-seg" id="mf-hujan-l" title="Lebat"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-panel" id="result-panel">
+      <div class="result-top">
+        <div class="risk-circle" id="risk-circle">🟢</div>
+        <div>
+          <div class="risk-label" id="risk-label">—</div>
+          <div class="risk-desc" id="risk-desc">—</div>
+        </div>
+        <div class="score-big">
+          <span id="score-val">0</span>
+          <small>SKOR FUZZY</small>
+        </div>
+      </div>
+      <div class="dist-label">Distribusi Risiko</div>
+      <div class="dist-bar">
+        <div class="dist-seg" id="dist-r" style="background:#56d364"></div>
+        <div class="dist-seg" id="dist-s" style="background:#e3b341"></div>
+        <div class="dist-seg" id="dist-t" style="background:#f0883e"></div>
+        <div class="dist-seg" id="dist-k" style="background:#f85149"></div>
+      </div>
+      <div class="dist-legend">
+        <span style="color:#56d364">Rendah</span>
+        <span style="color:#e3b341">Sedang</span>
+        <span style="color:#f0883e">Tinggi</span>
+        <span style="color:#f85149">Kritis</span>
+      </div>
+    </div>
+
+    <div class="membership-section">
+      <h3>Nilai Membership Function</h3>
+      <div class="mf-grid">
+        <div class="mf-item">
+          <div class="mf-item-label">Suhu</div>
+          <div class="mf-pills">
+            <div class="mf-pill"><span class="mf-pill-name">Rendah</span><span class="mf-pill-val" id="mv-sr">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-sr" style="background:#56d364;width:0%"></div></div>
+            <div class="mf-pill"><span class="mf-pill-name">Sedang</span><span class="mf-pill-val" id="mv-ss">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-ss" style="background:#e3b341;width:0%"></div></div>
+            <div class="mf-pill"><span class="mf-pill-name">Tinggi</span><span class="mf-pill-val" id="mv-st">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-st" style="background:#f85149;width:0%"></div></div>
+          </div>
+        </div>
+        <div class="mf-item">
+          <div class="mf-item-label">Kelembaban</div>
+          <div class="mf-pills">
+            <div class="mf-pill"><span class="mf-pill-name">Rendah</span><span class="mf-pill-val" id="mv-kr">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-kr" style="background:#56d364;width:0%"></div></div>
+            <div class="mf-pill"><span class="mf-pill-name">Sedang</span><span class="mf-pill-val" id="mv-ks">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-ks" style="background:#e3b341;width:0%"></div></div>
+            <div class="mf-pill"><span class="mf-pill-name">Tinggi</span><span class="mf-pill-val" id="mv-kt">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-kt" style="background:#f85149;width:0%"></div></div>
+          </div>
+        </div>
+        <div class="mf-item">
+          <div class="mf-item-label">Angin</div>
+          <div class="mf-pills">
+            <div class="mf-pill"><span class="mf-pill-name">Lemah</span><span class="mf-pill-val" id="mv-al">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-al" style="background:#56d364;width:0%"></div></div>
+            <div class="mf-pill"><span class="mf-pill-name">Sedang</span><span class="mf-pill-val" id="mv-as">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-as" style="background:#e3b341;width:0%"></div></div>
+            <div class="mf-pill"><span class="mf-pill-name">Kencang</span><span class="mf-pill-val" id="mv-ak">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-ak" style="background:#f85149;width:0%"></div></div>
+          </div>
+        </div>
+        <div class="mf-item">
+          <div class="mf-item-label">Curah Hujan</div>
+          <div class="mf-pills">
+            <div class="mf-pill"><span class="mf-pill-name">Tidak</span><span class="mf-pill-val" id="mv-ht">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-ht" style="background:#f85149;width:0%"></div></div>
+            <div class="mf-pill"><span class="mf-pill-name">Ringan</span><span class="mf-pill-val" id="mv-hr">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-hr" style="background:#e3b341;width:0%"></div></div>
+            <div class="mf-pill"><span class="mf-pill-name">Lebat</span><span class="mf-pill-val" id="mv-hl">0.00</span></div>
+            <div class="mf-track"><div class="mf-fill" id="mf-fill-hl" style="background:#56d364;width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      Sistem Fuzzy Mamdani · Praktikum Kecerdasan Buatan · Metode Defuzzifikasi: Centroid
+    </footer>
+  </div>
+
+  <script>
+    function trimf(x, a, b, c) {
+      if (x <= a || x >= c) return 0;
+      if (x <= b) return (x - a) / (b - a);
+      return (c - x) / (c - b);
+    }
+    function trapmf(x, a, b, c, d) {
+      if (x <= a || x >= d) return 0;
+      if (x >= b && x <= c) return 1;
+      if (x < b) return (x - a) / (b - a);
+      return (d - x) / (d - c);
+    }
+
+    function setBar(id, val, color) {
+      const el = document.getElementById(id);
+      if (el) { el.style.background = val > 0.05 ? color : '#21262d'; }
+    }
+
+    function compute() {
+      const suhu  = +document.getElementById('suhu').value;
+      const kel   = +document.getElementById('kel').value;
+      const angin = +document.getElementById('angin').value;
+      const hujan = +document.getElementById('hujan').value;
+
+      document.getElementById('suhu-out').textContent  = suhu + '°C';
+      document.getElementById('kel-out').textContent   = kel + '%';
+      document.getElementById('angin-out').textContent = angin + ' km/h';
+      document.getElementById('hujan-out').textContent = hujan + ' mm';
+
+      // Membership functions
+      const sr = trapmf(suhu, 20, 20, 28, 33);
+      const ss = trimf(suhu, 28, 35, 42);
+      const st = trapmf(suhu, 38, 43, 50, 50);
+
+      const kr = trapmf(kel, 0, 0, 30, 50);
+      const ks = trimf(kel, 30, 55, 70);
+      const kt = trapmf(kel, 60, 75, 100, 100);
+
+      const al = trapmf(angin, 0, 0, 20, 35);
+      const as_ = trimf(angin, 20, 40, 60);
+      const ak = trapmf(angin, 50, 65, 100, 100);
+
+      const ht = trapmf(hujan, 0, 0, 10, 25);
+      const hr = trimf(hujan, 10, 30, 50);
+      const hl = trapmf(hujan, 40, 60, 100, 100);
+
+      // Update MF display
+      const mvMap = {
+        'mv-sr': sr, 'mv-ss': ss, 'mv-st': st,
+        'mv-kr': kr, 'mv-ks': ks, 'mv-kt': kt,
+        'mv-al': al, 'mv-as': as_, 'mv-ak': ak,
+        'mv-ht': ht, 'mv-hr': hr, 'mv-hl': hl
+      };
+      for (const [id, val] of Object.entries(mvMap)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val.toFixed(2);
+        const fillId = id.replace('mv-', 'mf-fill-');
+        const fill = document.getElementById(fillId);
+        if (fill) fill.style.width = (val * 100).toFixed(1) + '%';
+      }
+
+      // Slider MF bars
+      setBar('mf-suhu-r', sr, '#56d364');
+      setBar('mf-suhu-s', ss, '#e3b341');
+      setBar('mf-suhu-t', st, '#f85149');
+      setBar('mf-kel-r', kr, '#f85149');
+      setBar('mf-kel-s', ks, '#e3b341');
+      setBar('mf-kel-t', kt, '#56d364');
+      setBar('mf-angin-l', al, '#56d364');
+      setBar('mf-angin-s', as_, '#e3b341');
+      setBar('mf-angin-k', ak, '#f85149');
+      setBar('mf-hujan-t', ht, '#f85149');
+      setBar('mf-hujan-r', hr, '#e3b341');
+      setBar('mf-hujan-l', hl, '#56d364');
+
+      // Fuzzy rules (Mamdani - min operator)
+      const rules = [
+        { w: Math.min(sr, kt, al, hl), out: 'rendah' },
+        { w: Math.min(sr, kt, al, hr), out: 'rendah' },
+        { w: Math.min(sr, kt, al, ht), out: 'sedang' },
+        { w: Math.min(sr, ks, al, hr), out: 'sedang' },
+        { w: Math.min(ss, ks, al, hr), out: 'sedang' },
+        { w: Math.min(ss, ks, as_, ht), out: 'sedang' },
+        { w: Math.min(ss, kr, as_, ht), out: 'tinggi' },
+        { w: Math.min(st, kr, as_, ht), out: 'tinggi' },
+        { w: Math.min(st, kr, ak, ht), out: 'kritis' },
+        { w: Math.min(st, kr, as_, hr), out: 'sedang' },
+        { w: Math.min(ss, kr, ak, ht), out: 'tinggi' },
+        { w: Math.min(st, ks, ak, ht), out: 'kritis' },
+        { w: Math.min(st, kr, ak, hr), out: 'tinggi' },
+        { w: Math.min(ss, kr, al, ht), out: 'sedang' },
+      ];
+
+      const agg = { rendah: 0, sedang: 0, tinggi: 0, kritis: 0 };
+      rules.forEach(r => { agg[r.out] = Math.max(agg[r.out], r.w); });
+
+      // Defuzzification (centroid)
+      const centers = { rendah: 12, sedang: 38, tinggi: 63, kritis: 88 };
+      let num = 0, den = 0;
+      for (const k in agg) { num += agg[k] * centers[k]; den += agg[k]; }
+      const score = den === 0 ? 0 : Math.round(num / den);
+
+      // Distribution bar
+      const total = Object.values(agg).reduce((a, b) => a + b, 0) || 1;
+      document.getElementById('dist-r').style.flex = (agg.rendah / total).toFixed(3);
+      document.getElementById('dist-s').style.flex = (agg.sedang / total).toFixed(3);
+      document.getElementById('dist-t').style.flex = (agg.tinggi / total).toFixed(3);
+      document.getElementById('dist-k').style.flex = (agg.kritis / total).toFixed(3);
+
+      // Result
+      let label, desc, color, emoji;
+      if (score < 25)      { label='RENDAH';  color='#56d364'; emoji='🟢'; desc='Kondisi aman, tidak ada ancaman signifikan'; }
+      else if (score < 50) { label='SEDANG';  color='#e3b341'; emoji='🟡'; desc='Waspadai perubahan cuaca, pantau kondisi lapangan'; }
+      else if (score < 72) { label='TINGGI';  color='#f0883e'; emoji='🟠'; desc='Bahaya meningkat, hindari aktivitas pembakaran'; }
+      else                  { label='KRITIS'; color='#f85149'; emoji='🔴'; desc='Siaga penuh! Risiko kebakaran sangat tinggi'; }
+
+      document.getElementById('risk-label').textContent = label;
+      document.getElementById('risk-label').style.color = color;
+      document.getElementById('risk-desc').textContent = desc;
+      document.getElementById('risk-circle').textContent = emoji;
+      document.getElementById('risk-circle').style.borderColor = color;
+      document.getElementById('score-val').textContent = score;
+      document.getElementById('score-val').style.color = color;
+      document.getElementById('result-panel').style.setProperty('--result-color', color);
+    }
+
+    ['suhu','kel','angin','hujan'].forEach(id => {
+      document.getElementById(id).addEventListener('input', compute);
+    });
+    compute();
+  </script>
+</body>
+</html>
