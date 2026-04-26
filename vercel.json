@@ -1,15 +1,10 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "fuzzy_kebakaran.py",
-      "use": "@vercel/python"
+  "functions": {
+    "fuzzy_kebakaran.py": {
+      "runtime": "python3.9"
     }
-  ],
+  },
   "routes": [
     {
       "src": "/api/fuzzy",
